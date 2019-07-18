@@ -1,5 +1,5 @@
 /*	Author: kmo004
- *  Partner(s) Name:
+ *  Partner(s) Name: Michael Wen
  *	Lab Section:
  *	Assignment: Lab #  Exercise #
  *	Exercise Description: [optional - include for your own benefit]
@@ -29,7 +29,6 @@ unsigned long _avr_timer_M = 1;
 unsigned long _avr_timer_cntcurr = 0;
 
 unsigned char button = 0x00;
-unsigned char Mask = 0x18;
 
 void TimerOn()
 {
@@ -69,105 +68,35 @@ void TimerSet(unsigned long M)
   _avr_timer_cntcurr = _avr_timer_M;
 }
 
-enum states{init,on,right,left} state;
-
-unsigned char temp;
-
-void Tick(){
-	switch(state){
-		case init:
-			state = on;
-			break;
-			
-		case on:
-		
-			if((~PINA & 0x01) == 0x01){
-				state = right;
-			}
-			else if((~PINA & 0x02) == 0x02){
-				state = left;
-			}
-			else{
-				state = on;
-			}
-			break;
-		
-		case right:
-			state = on;
-			break;
-		
-		case left:
-			state = on;
-			break;
-			
-		default:
-		state = on;
-		break;
-	}
-	
-	switch(state){
-		case init:
-		PORTC = ~(0x18);
-		PORTD = 0x80;
-		break;
-		
-		case on:
-		break;
-		
-		case right:
-			
-				if(PORTC == 0x3F){
-					break;
-				}
-				else{
-					PORTC = (PORTC << 1);
-					PORTC = PORTC + 1;
-				}
-		break;
-		
-		case left:
-				if(PORTC == 0xFC){
-					break;
-				}
-				else{
-					PORTC = (PORTC >> 1);
-					PORTC = PORTC - 0x80;
-				}
-				break;
-				
-		default:
-		break;
-	}
-}
-
 
 int main(void) {
     /* Insert DDR and PORT initializations */
-    DDRB = 0xFF; PORTB = 0x00;
-    DDRA = 0x00; PORTA = 0xFF;
     DDRC = 0xFF; PORTC = 0x00;
     DDRD = 0xFF; PORTD = 0x00;
     
-    TimerSet(100);
+    unsigned short time = 500;
+    unsigned char temp = 0;
+    unsigned char n = 38;
+    unsigned char i = 0;
+    TimerSet(time);
 	TimerOn();
+    
+    LCD_init();
+    unsigned char MSG[] = {'C','S','1','2','B',' ','i','s',' ', 'L','e','g','e','n','d',' ','.','.','.',' ','w','a','i','t',' ','f','o','r',' ','i','t',' ','D','A','R','Y','!',' '};
 
-	PORTC = ~(0x18);
-		PORTD = 0x80;
     /* Insert your solution below */
     while (1) {
-		Tick();
-		while(!TimerFlag);
+		LCD_DisplayString(1, MSG);
+	  while(!TimerFlag);
       TimerFlag = 0;
       
-		
-		
+      temp = MSG[0];
+      for(i = 0; i < (n-1); i++){
+		  MSG[i] = MSG[i+1];
+	  }
+	  MSG[n-1] = temp;
    }
     return 1;
 }
-
-	
-
-
-
 
 	
