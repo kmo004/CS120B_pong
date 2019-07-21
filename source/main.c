@@ -15,9 +15,10 @@
 #endif
 
 volatile unsigned char TimerFlag = 0;
-
 unsigned long _avr_timer_M = 1;
 unsigned long _avr_timer_cntcurr = 0;
+
+unsigned char ballSpd = 500;
 
 void TimerOn(){
   TCCR1B = 0x0B;
@@ -53,7 +54,6 @@ void TimerSet(unsigned long M){
 }
 
 enum states{init,on,right,left} state;
-unsigned char temp;
 volatile unsigned char PaddleC = 0x00;
 volatile unsigned char PaddleR = 0x00;
 
@@ -123,6 +123,76 @@ void TickPaddle(){
 	}
 }
 
+enum states2{init2,on2,right2,left2} state2;
+volatile unsigned char Paddle2C = 0x00;
+volatile unsigned char Paddle2R = 0x00;
+
+void TickPaddle2(){
+	switch(state2){
+		case init2:
+			state2 = on2;
+			break;
+			
+		case on2:
+		
+			if((~PINB & 0x10) == 0x10){
+				state2 = right2;
+			}
+			else if((~PINB & 0x08) == 0x08){
+				state2 = left2;
+			}
+			else{
+				state2 = on2;
+			}
+			break;
+		
+		case right2:
+			state2 = on2;
+			break;
+		
+		case left2:
+			state2 = on2;
+			break;
+			
+		default:
+		state2 = init2;
+		break;
+	}
+	
+	switch(state2){
+		case init2:
+		Paddle2C = ~(0x18);
+		Paddle2R = 0x01;
+		break;
+		
+		case on2:
+		break;
+		
+		case right2:
+				if(Paddle2C == 0x3F){
+					break;
+				}
+				else{
+					Paddle2C = (Paddle2C << 1);
+					Paddle2C = Paddle2C + 1;
+				}
+		break;
+		
+		case left2:
+				if(Paddle2C == 0xFC){
+					break;
+				}
+				else{
+					Paddle2C = (Paddle2C >> 1);
+					Paddle2C = Paddle2C - 0x80;
+				}
+				break;
+				
+		default:
+		break;
+	}
+}
+
 unsigned char course = 0x00; //1 = upright, 2 = upleft, 3 = downright, 4 = downleft
 volatile unsigned char ballC = 0x00;
 volatile unsigned char ballR = 0x00;
@@ -138,6 +208,8 @@ void TickBall(){
 		case move:
 			//bouncing off wall
 			
+			if((~PINB & 0x20) == 0x20){ goto skip;} // turns off top wall bounce if player2
+		
 			//top wall;  
 			if((course == 0x01) && (ballR == 0x01)){
 				course = 0x03;
@@ -145,8 +217,10 @@ void TickBall(){
 			else if((course == 0x02) && (ballR == 0x01)){
 				course = 0x04;
 			}
+			
+			skip:
 			// right wall
-			else if((course == 0x03) && (ballC == 0x7F)){ 
+			if((course == 0x03) && (ballC == 0x7F)){ 
 				course = 0x04;
 			}
 			else if((course == 0x01) && (ballC == 0x7F)){
@@ -194,6 +268,10 @@ void TickBall(){
 				guess = (guess << 1);
 				guess = guess + 1;
 				
+				if(ballSpd > 50){
+						ballSpd = ballSpd - 25;
+				}
+				
 				if((~guess) > (~PaddleC)){  
 					//bounce right
 					course = 1;
@@ -203,21 +281,25 @@ void TickBall(){
 					course = 2;
 				}
 			} 
-			//turn on to make game easier
-			/*
-			if((PaddleC | ballC) != 0xFF && (PaddleR == (ballR))){
-				guess = ballC;
+			//if player 2 exists
+			if((~PINB & 0x20) == 0x20){
+				if((Paddle2C | ballC) != 0xFF && (Paddle2R == (ballR >> 1))){
+					guess = ballC;
 				
-				guess = (guess << 1);
-				guess = guess + 1;
-				if((~guess) > (~PaddleC)){
-					course = 1;
-				}
-				else{
-					course = 2;
-				}
-			} 
-			*/
+					guess = (guess << 1);
+					guess = guess + 1;
+					if(ballSpd > 50){
+						ballSpd = ballSpd - 25;
+					}
+					if((~guess) > (~Paddle2C)){
+						course = 3;
+					}
+					else{
+						course = 4;
+					}
+				} 
+			}
+			
 			
 			//direction
 			if((course) == 0x01){
@@ -319,6 +401,7 @@ int main(void) {
     DDRD = 0xFF; PORTD = 0x00;
     unsigned char time = 1;
     unsigned char cnt = 0;
+    unsigned char cnt2 = 0;
     unsigned char swap = 0;
     
     TimerSet(time);
@@ -328,24 +411,44 @@ int main(void) {
 	PaddleR = 0x80;
 	state = init;
 	
+	if((~PINB & 0x20) & 0x20){
+		Paddle2C = ~(0x18);
+		Paddle2R = 0x01;
+		state = init2;
+	}
 	
 	ballR = 0x80;
 	ballC = ~(0x08);
 	course = 0x05;	
 	state1 = init1;
+	
 
     /* Insert your solution below */
     while (1) {
 		if(cnt == 100){
 			TickPaddle();
-			TickBall();
+			
+			if((~PINB & 0x20) & 0x20){
+				TickPaddle2();
+			}
 			cnt = 0;
 		}
 		++cnt;
+		if(cnt2 == ballSpd){
+			TickBall();
+			cnt2 = 0;
+		}
+		++cnt2;
+		
 		if(swap == 0){
 			PORTC = PaddleC;
 			PORTD = PaddleR;
 			swap = 1;
+		}
+		else if(swap == 1){
+			PORTC = Paddle2C;
+			PORTD = Paddle2R;
+			swap = 2;
 		}
 		else{
 			PORTC = ballC;
@@ -361,10 +464,7 @@ int main(void) {
 		}
 			
 		while(!TimerFlag);
-		TimerFlag = 0;
-      
-		
-		
+		TimerFlag = 0;	
    }
     return 1;
 }
