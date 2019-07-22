@@ -19,7 +19,14 @@ unsigned long _avr_timer_M = 1;
 unsigned long _avr_timer_cntcurr = 0;
 
 unsigned char ballSpd = 500;
-volatile char win = 0;
+unsigned char score = 0;
+unsigned char score1 = 0;
+unsigned char score2 = 0;
+
+enum statesAI{initAI,onAI,rightAI,leftAI} stateAI;
+volatile unsigned char PaddleAIC = 0x00;
+volatile unsigned char PaddleAIR = 0x00;
+void TickPaddleAI();
 
 void TimerOn(){
   TCCR1B = 0x0B;
@@ -169,7 +176,7 @@ void TickPaddle2(){
 		case on2:
 		break;
 		
-		case right2:
+		case left2:
 				if(Paddle2C == 0x1F){
 					break;
 				}
@@ -179,7 +186,7 @@ void TickPaddle2(){
 				}
 		break;
 		
-		case left2:
+		case right2:
 				if(Paddle2C == 0xF8){
 					break;
 				}
@@ -193,6 +200,8 @@ void TickPaddle2(){
 		break;
 	}
 }
+
+
 
 unsigned char course = 0x00; //1 = upright, 2 = upleft, 3 = downright, 4 = downleft
 							//5 = down, 6 = up
@@ -209,6 +218,7 @@ void TickBall(){
 			break;
 			
 		case move:
+			/*
 			//bouncing off wall
 			if((~PINB & 0x20) == 0x20){ goto skip;} // turns off top wall bounce if player2
 		
@@ -224,6 +234,8 @@ void TickBall(){
 			}
 			
 			skip:
+			*/
+			
 			// right wall
 			if((course == 0x03) && (ballC == 0x7F)){ 
 				course = 0x04;
@@ -231,6 +243,7 @@ void TickBall(){
 			else if((course == 0x01) && (ballC == 0x7F)){
 				course = 0x02;
 			}
+			
 			/*
 			// bottom wall
 			else if((course == 0x04) && (ballR == 0x80)){
@@ -243,6 +256,7 @@ void TickBall(){
 				course 0x06;
 			}
 			*/
+			
 			// left wall
 			else if((course == 0x02) && (ballC == 0xFE)){
 				course = 0x01;
@@ -300,7 +314,18 @@ void TickBall(){
 			} 
 			// player1 lose condition counter
 			else if((PaddleC | ballC) == 0xFF && (PaddleR == (ballR))){
-				win = 1;
+				if(score2 == 0x00){
+					score2 = 0x10;
+				}
+				else if(score2 == 0x10){
+					score2 = 0x30;
+				}
+				else if(score2 == 0x30){
+					score2 = 0x70;
+				}
+				else{
+					score2 = 0x00;
+				}
 			}
 			//if player 2 exists
 			if((~PINB & 0x20) == 0x20){
@@ -328,10 +353,64 @@ void TickBall(){
 						course = 4;
 					}
 				}
+				//player2 lose coniditon
 				else if((Paddle2C | ballC) == 0xFF && (Paddle2R == (ballR))){
-					win = 1;
+					if(score1 == 0x00){
+						score1 = 0x01;
+					}
+					else if(score1 == 0x01){
+						score1 = 0x03;
+					}
+					else if(score1 == 0x03){
+						score1 = 0x07;
+					}
+					else{
+						score1 = 0x00;
+					}
 				} 
 			}
+			else{
+				if((PaddleAIC | ballC) != 0xFF && (PaddleAIR == (ballR >> 1))){
+					guess = ballC;
+				
+					guess = (guess << 1);
+					guess = guess + 1;
+					
+					guess2 = guess;
+				
+					guess2 = (guess2 << 1);
+					guess2 = guess2 + 1;
+					
+					if(ballSpd > 50){
+						ballSpd = ballSpd - 25;
+					}
+					if((~guess) > (~PaddleAIC)){
+						course = 3;
+					}
+					else if(~(guess2) > (~PaddleAIC)){
+						course = 5;
+					}
+					else{
+						course = 4;
+					}
+				}
+				//playerAI lose coniditon
+				else if((PaddleAIC | ballC) == 0xFF && (PaddleAIR == (ballR))){
+					if(score1 == 0x00){
+						score1 = 0x01;
+					}
+					else if(score1 == 0x01){
+						score1 = 0x03;
+					}
+					else if(score1 == 0x03){
+						score1 = 0x07;
+					}
+					else{
+						score1 = 0x00;
+					}
+				}
+			}
+			score = score1 + score2;
 			
 			
 			
@@ -433,6 +512,72 @@ void TickBall(){
 
 
 
+void TickPaddleAI(){
+	switch(stateAI){
+		case initAI:
+			stateAI = onAI;
+			break;
+			
+		case onAI:
+		
+			if((~PINB & 0x10) == 0x10){
+				stateAI = rightAI;
+			}
+			else if((~PINB & 0x08) == 0x08){
+				stateAI = leftAI;
+			}
+			else{
+				stateAI = onAI;
+			}
+			break;
+		
+		case rightAI:
+			stateAI = onAI;
+			break;
+		
+		case leftAI:
+			stateAI = onAI;
+			break;
+			
+		default:
+		stateAI = initAI;
+		break;
+	}
+	
+	switch(stateAI){
+		case initAI:
+		PaddleAIC = ~(0x38);
+		PaddleAIR = 0x01;
+		break;
+		
+		case onAI:
+		break;
+		
+		case leftAI:
+				if(PaddleAIC == 0x1F){
+					break;
+				}
+				else{
+					PaddleAIC = (PaddleAIC << 1);
+					PaddleAIC = PaddleAIC + 1;
+				}
+		break;
+		
+		case rightAI:
+				if(PaddleAIC == 0xF8){
+					break;
+				}
+				else{
+					PaddleAIC = (PaddleAIC >> 1);
+					PaddleAIC = PaddleAIC - 0x80;
+				}
+				break;
+				
+		default:
+		break;
+	}
+}
+
 
 
 int main(void) {
@@ -449,16 +594,23 @@ int main(void) {
     TimerSet(time);
 	TimerOn();
 
+	//player 1
 	PaddleC = ~(0x38);
 	PaddleR = 0x80;
 	state = init;
 	
+	//player 2 or AI player
 	if((~PINB & 0x20) & 0x20){
 		Paddle2C = ~(0x38);
 		Paddle2R = 0x01;
-		state = init2;
+		state2 = init2;
 	}
-	
+	else{
+		PaddleAIC = ~(0x38);
+		PaddleAIR = 0x01;
+		stateAI = initAI;
+	}
+		
 	ballR = 0x80;
 	ballC = ~(0x08);
 	course = 0x05;	
@@ -467,17 +619,16 @@ int main(void) {
 
     /* Insert your solution below */
     while (1) {
-		if(win == 1){
-			PORTC = 0x00;
-			PORTD = 0xFF;
-			PORTA = 0xFF;
-			
-		}
+		PORTA = score;
+		
 		if(cnt == 100){
 			TickPaddle();
 			
 			if((~PINB & 0x20) & 0x20){
 				TickPaddle2();
+			}
+			else{
+				TickPaddleAI();
 			}
 			cnt = 0;
 		}
@@ -494,8 +645,14 @@ int main(void) {
 			swap = 1;
 		}
 		else if(swap == 1){
-			PORTC = Paddle2C;
-			PORTD = Paddle2R;
+			if((~PINB & 0x20) & 0x20){
+				PORTC = Paddle2C;
+				PORTD = Paddle2R;
+			}
+			else{
+				PORTC = PaddleAIC;
+				PORTD = PaddleAIR;
+			}
 			swap = 2;
 		}
 		else{
@@ -505,13 +662,19 @@ int main(void) {
 		}
 		//reset
 		if((~PINB & 0x04) == 0x04){
-			win = 0;
+			//score reset after 3 points by either player
+			if((score1 == 0x07) | (score2 == 0x70)){
+				score1 = 0x00;
+				score2 = 0x00;
+				score = 0x00;
+			}
 			ballR = 0x02;
 			ballC = ~(0x08);
 			course = 0x05;	
 			state1 = init1;
 			ballSpd = 500;
-			PORTA = 0x00;
+			
+			
 		}
 			
 		while(!TimerFlag);
