@@ -519,15 +519,24 @@ void TickPaddleAI(){
 			break;
 			
 		case onAI:
+			guess = ballC;
+				
+			guess = (guess << 1);
+			guess = guess + 1;
+				
+			guess2 = guess;
+				
+			guess2 = (guess2 << 1);
+			guess2 = guess2 + 1;
 		
-			if((~PINB & 0x10) == 0x10){
-				stateAI = rightAI;
-			}
-			else if((~PINB & 0x08) == 0x08){
+			if(((~guess) > (~PaddleAIC)) && (PaddleAIC != 0x1F)){
 				stateAI = leftAI;
 			}
-			else{
+			else if((~(guess2) > (~PaddleAIC)) && (PaddleAIC == 0xF8)){
 				stateAI = onAI;
+			}
+			else{
+				stateAI = rightAI;
 			}
 			break;
 		
