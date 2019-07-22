@@ -19,6 +19,7 @@ unsigned long _avr_timer_M = 1;
 unsigned long _avr_timer_cntcurr = 0;
 
 unsigned char ballSpd = 500;
+volatile char win = 0;
 
 void TimerOn(){
   TCCR1B = 0x0B;
@@ -209,7 +210,6 @@ void TickBall(){
 			
 		case move:
 			//bouncing off wall
-			
 			if((~PINB & 0x20) == 0x20){ goto skip;} // turns off top wall bounce if player2
 		
 			//top wall;  
@@ -298,6 +298,10 @@ void TickBall(){
 					course = 2;
 				}
 			} 
+			// player1 lose condition counter
+			else if((PaddleC | ballC) == 0xFF && (PaddleR == (ballR))){
+				win = 1;
+			}
 			//if player 2 exists
 			if((~PINB & 0x20) == 0x20){
 				if((Paddle2C | ballC) != 0xFF && (Paddle2R == (ballR >> 1))){
@@ -323,8 +327,12 @@ void TickBall(){
 					else{
 						course = 4;
 					}
+				}
+				else if((Paddle2C | ballC) == 0xFF && (Paddle2R == (ballR))){
+					win = 1;
 				} 
 			}
+			
 			
 			
 			//direction
@@ -459,6 +467,11 @@ int main(void) {
 
     /* Insert your solution below */
     while (1) {
+		if(win == 1){
+			PORTC = 0x00;
+			PORTD = 0xFF;
+			
+		}
 		if(cnt == 100){
 			TickPaddle();
 			
@@ -491,6 +504,7 @@ int main(void) {
 		}
 		//reset
 		if((~PINB & 0x04) == 0x04){
+			win = 0;
 			ballR = 0x02;
 			ballC = ~(0x08);
 			course = 0x05;	
