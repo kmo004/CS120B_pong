@@ -470,6 +470,7 @@ int main(void) {
 		if(win == 1){
 			PORTC = 0x00;
 			PORTD = 0xFF;
+			PORTA = 0xFF;
 			
 		}
 		if(cnt == 100){
@@ -510,6 +511,7 @@ int main(void) {
 			course = 0x05;	
 			state1 = init1;
 			ballSpd = 500;
+			PORTA = 0x00;
 		}
 			
 		while(!TimerFlag);
