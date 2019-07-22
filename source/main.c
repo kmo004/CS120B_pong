@@ -91,7 +91,7 @@ void TickPaddle(){
 	
 	switch(state){
 		case init:
-		PaddleC = ~(0x18);
+		PaddleC = ~(0x38);
 		PaddleR = 0x80;
 		break;
 		
@@ -99,7 +99,7 @@ void TickPaddle(){
 		break;
 		
 		case right:
-				if(PaddleC == 0x3F){
+				if(PaddleC == 0x1F){
 					break;
 				}
 				else{
@@ -109,7 +109,7 @@ void TickPaddle(){
 		break;
 		
 		case left:
-				if(PaddleC == 0xFC){
+				if(PaddleC == 0xF8){
 					break;
 				}
 				else{
@@ -161,7 +161,7 @@ void TickPaddle2(){
 	
 	switch(state2){
 		case init2:
-		Paddle2C = ~(0x18);
+		Paddle2C = ~(0x38);
 		Paddle2R = 0x01;
 		break;
 		
@@ -169,7 +169,7 @@ void TickPaddle2(){
 		break;
 		
 		case right2:
-				if(Paddle2C == 0x3F){
+				if(Paddle2C == 0x1F){
 					break;
 				}
 				else{
@@ -179,7 +179,7 @@ void TickPaddle2(){
 		break;
 		
 		case left2:
-				if(Paddle2C == 0xFC){
+				if(Paddle2C == 0xF8){
 					break;
 				}
 				else{
@@ -194,10 +194,12 @@ void TickPaddle2(){
 }
 
 unsigned char course = 0x00; //1 = upright, 2 = upleft, 3 = downright, 4 = downleft
+							//5 = down, 6 = up
 volatile unsigned char ballC = 0x00;
 volatile unsigned char ballR = 0x00;
 unsigned char guess = 0x00;
-enum states1{init1,move,upRight, upLeft, downRight, downLeft, down} state1;
+unsigned char guess2 = 0x00;
+enum states1{init1,move,upRight, upLeft, downRight, downLeft, down, up} state1;
 
 void TickBall(){
 	switch(state1){
@@ -217,6 +219,9 @@ void TickBall(){
 			else if((course == 0x02) && (ballR == 0x01)){
 				course = 0x04;
 			}
+			else if((course == 0x06) && (ballR == 0x01)){
+				course = 0x05;
+			}
 			
 			skip:
 			// right wall
@@ -233,6 +238,9 @@ void TickBall(){
 			}
 			else if((course == 0x03) && (ballR == 0x80)){
 				course = 0x01;
+			}
+			else if((course == 0x05) && (ballR = 0x80)){
+				course 0x06;
 			}
 			*/
 			// left wall
@@ -268,6 +276,11 @@ void TickBall(){
 				guess = (guess << 1);
 				guess = guess + 1;
 				
+				guess2 = guess;
+				
+				guess2 = (guess2 << 1);
+				guess2 = guess2 + 1;
+				
 				if(ballSpd > 50){
 						ballSpd = ballSpd - 25;
 				}
@@ -276,8 +289,12 @@ void TickBall(){
 					//bounce right
 					course = 1;
 				}
+				else if(~(guess2) > (~PaddleC)){
+					//bounce middle
+					course = 6;
+				}
 				else{
-					//bounce left;
+					//bounce left
 					course = 2;
 				}
 			} 
@@ -288,11 +305,20 @@ void TickBall(){
 				
 					guess = (guess << 1);
 					guess = guess + 1;
+					
+					guess2 = guess;
+				
+					guess2 = (guess2 << 1);
+					guess2 = guess2 + 1;
+					
 					if(ballSpd > 50){
 						ballSpd = ballSpd - 25;
 					}
 					if((~guess) > (~Paddle2C)){
 						course = 3;
+					}
+					else if(~(guess2) > (~Paddle2C)){
+						course = 5;
 					}
 					else{
 						course = 4;
@@ -316,6 +342,9 @@ void TickBall(){
 			}
 			else if((course) == 0x05){
 				state1 = down;
+			}
+			else if((course) == 0x06){
+				state1 = up;
 			}
 			else{
 				state1 = move;
@@ -381,8 +410,13 @@ void TickBall(){
 		break;
 		
 		case down:
-			ballC = ballC;
+			//ballC = ballC;
 			ballR = (ballR << 1);
+		break;
+		
+		case up:
+			//ballC = ballC;
+			ballR = (ballR >> 1);
 		break;
 	}
 		
@@ -407,12 +441,12 @@ int main(void) {
     TimerSet(time);
 	TimerOn();
 
-	PaddleC = ~(0x18);
+	PaddleC = ~(0x38);
 	PaddleR = 0x80;
 	state = init;
 	
 	if((~PINB & 0x20) & 0x20){
-		Paddle2C = ~(0x18);
+		Paddle2C = ~(0x38);
 		Paddle2R = 0x01;
 		state = init2;
 	}
@@ -457,10 +491,11 @@ int main(void) {
 		}
 		//reset
 		if((~PINB & 0x04) == 0x04){
-			ballR = 0x08;
+			ballR = 0x02;
 			ballC = ~(0x08);
 			course = 0x05;	
 			state1 = init1;
+			ballSpd = 500;
 		}
 			
 		while(!TimerFlag);
