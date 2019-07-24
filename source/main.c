@@ -14,6 +14,65 @@
 #include "simAVRHeader.h"
 #endif
 
+#include <avr/io.h>
+#include <util/delay.h>
+#define HC595_PORT   PORTA
+#define HC595_DDR    DDRA
+#define HC595_DS_POS PB0      //Data pin (DS) pin location
+#define HC595_SH_CP_POS PB1      //Shift Clock (SH_CP) pin location 
+#define HC595_ST_CP_POS PB2      //Store Clock (ST_CP) pin location
+uint8_t i = 0;
+
+void HC595Init()
+{HC595_DDR|=((1<<HC595_SH_CP_POS)|(1<<HC595_ST_CP_POS)|(1<<HC595_DS_POS));}
+
+#define HC595DataHigh() (HC595_PORT|=(1<<HC595_DS_POS))
+#define HC595DataLow() (HC595_PORT&=(~(1<<HC595_DS_POS)))
+
+void HC595Pulse()
+{
+   HC595_PORT|=(1<<HC595_SH_CP_POS);//HIGH
+   HC595_PORT&=(~(1<<HC595_SH_CP_POS));//LOW
+}
+
+void HC595Latch()
+{
+   HC595_PORT|=(1<<HC595_ST_CP_POS);//HIGH
+   _delay_loop_1(1);
+   HC595_PORT&=(~(1<<HC595_ST_CP_POS));//LOW
+   _delay_loop_1(1);
+}
+
+void HC595Write(uint8_t data)
+{
+   for(i=0;i<8;i++)
+   {
+      if(data & 0b10000000)
+      {
+         HC595DataHigh();
+      }
+      else
+      {
+         HC595DataLow();
+      }
+
+      HC595Pulse();
+      data=data<<1; 
+
+   }
+   HC595Latch();
+}
+
+void Wait()
+{
+   for(i=0;i<30;i++)
+   {
+      _delay_loop_2(0);
+   }
+}
+
+
+
 volatile unsigned char TimerFlag = 0;
 unsigned long _avr_timer_M = 1;
 unsigned long _avr_timer_cntcurr = 0;
@@ -209,6 +268,7 @@ volatile unsigned char ballC = 0x00;
 volatile unsigned char ballR = 0x00;
 unsigned char guess = 0x00;
 unsigned char guess2 = 0x00;
+unsigned char guess3 = 0x00;
 enum states1{init1,move,upRight, upLeft, downRight, downLeft, down, up} state1;
 
 void TickBall(){
@@ -265,6 +325,8 @@ void TickBall(){
 				course = 0x03;
 			}
 			
+			
+			/*
 			//corner cases
 			//top left
 			if((ballC == 0xFE ) && (ballR == 0x01)){
@@ -282,13 +344,24 @@ void TickBall(){
 			else if((ballC == 0xFE) && (ballR == 0x80)){
 				course = 0x01;
 			}
+			*/
+			
+			//paddle corner cases
+			if(course == 3){
+				guess = ballC;
+				guess = (guess << 1) +1;
+			}
+			else if(course ==4){
+				guess = ballC;
+				guess = (guess >> 1);
+				guess = guess - 0x80;
+			}
+			else{
+				guess = ballC;
+			}
 			
 			//bouncing off paddle
-			if((PaddleC | ballC) != 0xFF && ((PaddleR == (ballR << 1)) | (PaddleR == ballR))){
-				guess = ballC;
-				
-				guess = (guess << 1);
-				guess = guess + 1;
+			if( ((PaddleC | guess) != 0xFF) && (PaddleR == (ballR << 1)) ){
 				
 				guess2 = guess;
 				
@@ -329,7 +402,20 @@ void TickBall(){
 			}
 			//if player 2 exists
 			if((~PINB & 0x20) == 0x20){
-				if((Paddle2C | ballC) != 0xFF && ((Paddle2R == (ballR >> 1)) | (Paddle2R == ballR))){
+				if(course == 1){
+					guess = ballC;
+					guess = (guess << 1) +1;
+				}
+				else if(course == 2){
+					guess = ballC;
+					guess = (guess >> 1);
+					guess = guess - 0x80;
+				}
+				else{
+					guess = ballC;
+				}
+				
+				if( ((Paddle2C | guess) != 0xFF) && (Paddle2R == (ballR >> 1)) ){
 					guess = ballC;
 				
 					guess = (guess << 1);
@@ -367,14 +453,24 @@ void TickBall(){
 					else{
 						score1 = 0x00;
 					}
-				} 
+				}
+				else{
+				}
 			}
 			else{
-				if((PaddleAIC | ballC) != 0xFF && ((PaddleAIR == (ballR >> 1)) | (PaddleAIR == ballR))){
+				if(course == 1){
 					guess = ballC;
-				
-					guess = (guess << 1);
-					guess = guess + 1;
+					guess = (guess << 1) +1;
+				}
+				else if(course == 2){
+					guess = ballC;
+					guess = (guess >> 1);
+					guess = guess - 0x80;
+				}
+				else{
+					guess = ballC;
+				}
+				if( ((PaddleAIC | guess) != 0xFF) && (PaddleAIR == (ballR >> 1)) ){
 					
 					guess2 = guess;
 				
@@ -410,7 +506,7 @@ void TickBall(){
 					}
 				}
 			}
-			score = score1 + score2;
+			score = score1 | score2;
 			
 			
 			
@@ -529,10 +625,10 @@ void TickPaddleAI(){
 			guess2 = (guess2 << 1);
 			guess2 = guess2 + 1;
 		
-			if(((~guess) > (~PaddleAIC)) && (PaddleAIC != 0x1F)){
+			if(~guess > ~PaddleAIC){
 				stateAI = leftAI;
 			}
-			else if((~(guess2) > (~PaddleAIC)) && (PaddleAIC == 0xF8)){
+			else if(~guess2 > ~PaddleAIC){
 				stateAI = onAI;
 			}
 			else{
@@ -628,10 +724,11 @@ int main(void) {
 	course = 0x05;	
 	state1 = init1;
 	*/
+	HC595Init();
 
     /* Insert your solution below */
     while (1) {
-		PORTA = score;
+		HC595Write(score);
 		
 		if(cntPL == 50){
 			TickPaddle();
@@ -675,7 +772,7 @@ int main(void) {
 			PORTD = ballR;
 			swap = 0;
 		}
-		//reset
+		//start ball
 		if((~PINB & 0x04) == 0x04){
 			//fixes giving point to player2/AI for lack of ball during startup
 			if(score2 == 0x08){
@@ -683,18 +780,24 @@ int main(void) {
 			}
 			//score reset after 3 points by either player
 			if((score1 == 0x07) | (score2 == 0x70)){
-				score1 = 0x00;
-				score2 = 0x00;
-				score = 0x00;
+					score1 = score2 = score = 0x00 ;
+					
 			}
 			ballR = 0x04;
-			ballC = ~(0x08);
+			ballC = ~(0x04);
 			course = 0x05;	
 			state1 = init1;
 			ballSpd = 500;
 			
 			
 		}
+		
+		if((~PINB & 0x40) == 0x40){
+			score2 = score1 = score = 0x00;
+			ballR = 0x00;
+			ballC = 0xFF;
+		}
+			
 			
 		while(!TimerFlag);
 		TimerFlag = 0;	
