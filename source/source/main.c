@@ -363,6 +363,11 @@ void TickBall(){
 			//bouncing off paddle
 			if( ((PaddleC | guess) != 0xFF) && (PaddleR == (ballR << 1)) ){
 				
+				guess = ballC;
+				guess = (guess << 1);
+				guess = guess + 1;
+				
+				
 				guess2 = guess;
 				
 				guess2 = (guess2 << 1);
@@ -378,13 +383,21 @@ void TickBall(){
 				}
 				else if(~(guess2) > (~PaddleC)){
 					//bounce middle
-					course = 6;
+					if(course == 3){
+						course = 1;
+					}
+					else{
+						course = 2;
+					}
 				}
 				else{
 					//bounce left
 					course = 2;
 				}
-			} 
+			}
+			
+
+			 
 			// player1 lose condition counter
 			else if(PaddleR == ballR){
 				if(score2 == 0x00){
@@ -397,7 +410,7 @@ void TickBall(){
 					score2 = 0x70;
 				}
 				else{
-					score2 = 0x00;
+					score2 = score2;
 				}
 			}
 			//if player 2 exists
@@ -433,7 +446,12 @@ void TickBall(){
 						course = 3;
 					}
 					else if(~(guess2) > (~Paddle2C)){
-						course = 5;
+						if(course == 1){
+							course = 3;
+						}
+						else{
+							course = 4;
+						}
 					}
 					else{
 						course = 4;
@@ -451,7 +469,7 @@ void TickBall(){
 						score1 = 0x07;
 					}
 					else{
-						score1 = 0x00;
+						score1 = score1;
 					}
 				}
 				else{
@@ -472,6 +490,10 @@ void TickBall(){
 				}
 				if( ((PaddleAIC | guess) != 0xFF) && (PaddleAIR == (ballR >> 1)) ){
 					
+					guess = ballC;
+					guess = (guess << 1);
+					guess = guess + 1;
+					
 					guess2 = guess;
 				
 					guess2 = (guess2 << 1);
@@ -484,7 +506,12 @@ void TickBall(){
 						course = 3;
 					}
 					else if(~(guess2) > (~PaddleAIC)){
-						course = 5;
+						if(course == 1){
+							course = 3;
+						}
+						else{
+							course = 4;
+						}
 					}
 					else{
 						course = 4;
@@ -502,12 +529,29 @@ void TickBall(){
 						score1 = 0x07;
 					}
 					else{
-						score1 = 0x00;
+						score1 = score1;
 					}
 				}
 			}
 			score = score1 | score2;
 			
+			//corner cases
+			//bottom left
+			if((ballC == 0xFE && ballR == 0x40) && ((PaddleC == 0xF8) || (PaddleC == 0xF1))){
+				course = 1;
+			}
+			//bottom right 
+			else if((ballC == 0x7F && ballR == 0x40) && ((PaddleC == 0x8F) || (PaddleC == 0x1F))){
+				course = 2;
+			}
+			//top left
+			else if((ballC == 0xFE && ballR == 0x02) && ( ((Paddle2C == 0xF8) || (Paddle2C == 0xF1)) || ((PaddleAIC == 0xF8) || (PaddleAIC == 0xF1)) )){
+				course = 3;
+			}
+			//top right
+			else if((ballC == 0x7F && ballR == 0x02) && ( ((Paddle2C == 0x8F) || (Paddle2C == 0x1F)) || ((PaddleAIC == 0xF8) || (PaddleAIC == 0xF1)) )){
+				course = 4;
+			}
 			
 			
 			//direction
@@ -615,6 +659,7 @@ void TickPaddleAI(){
 			break;
 			
 		case onAI:
+		
 			guess = ballC;
 				
 			guess = (guess << 1);
@@ -624,15 +669,19 @@ void TickPaddleAI(){
 				
 			guess2 = (guess2 << 1);
 			guess2 = guess2 + 1;
-		
-			if(((~guess) > (~PaddleAIC)) && (PaddleAIC != 0x1F)){
+			
+			if((~guess > ~PaddleAIC) ){
 				stateAI = leftAI;
 			}
-			else if((~(guess2) > (~PaddleAIC)) && (PaddleAIC == 0xF8)){
-				stateAI = onAI;
+			else if(~guess2 > ~PaddleAIC ){
+				//middle
+			}
+			else if(ballC == 0xBF | ballC == 0x7F){
+				// fixes overflow issue that makes it flicker back and forth
 			}
 			else{
-				stateAI = rightAI;
+					stateAI = rightAI;
+				
 			}
 			break;
 		
@@ -739,7 +788,7 @@ int main(void) {
 			cntPL = 0;
 		}
 		++cntPL;
-		if(cntAI == 100){
+		if(cntAI == 50){
 				TickPaddleAI();
 				cntAI = 0;
 			}
@@ -784,7 +833,7 @@ int main(void) {
 					
 			}
 			ballR = 0x04;
-			ballC = ~(0x04);
+			ballC = ~(0x08);
 			course = 0x05;	
 			state1 = init1;
 			ballSpd = 500;
