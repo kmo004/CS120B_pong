@@ -1,0 +1,5 @@
+ReadMe:
+
+this source file contains the game logic and ball physcis. 3 paddle functions to handle player1/2/AI movement and ball function to handle physcis and scoring.
+
+making this project taught me how to effectively use the ATMEGA 1284, the Shift register, and the LED matrix.
